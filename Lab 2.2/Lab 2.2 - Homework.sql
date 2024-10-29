@@ -2,7 +2,7 @@
 --Nguyễn Lê Hưng
 --23520567
 --IT004.P113.2
---Link github: 
+--Link github: https://github.com/leehugw/IT004.P113/blob/main/Lab%202.2/Lab%202.2%20-%20Homework.sql
 
 
 --1 Liệt kê tất cả các chuyên gia và sắp xếp theo họ tên.
