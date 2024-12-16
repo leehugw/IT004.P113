@@ -11,7 +11,7 @@ BEGIN
 	UPDATE ChuyenGia
 	SET NgayCapNhat = GETDATE()
 	FROM ChuyenGia JOIN inserted ON ChuyenGia.MaChuyenGia = inserted.MaChuyenGia
-END
+END;
 
 -- 102. Tạo một trigger để ghi log mỗi khi có sự thay đổi trong bảng DuAn.
 CREATE TABLE Log_DuAn (
