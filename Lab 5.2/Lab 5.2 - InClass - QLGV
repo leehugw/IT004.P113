@@ -1,0 +1,291 @@
+--Nguyễn Lê Hưng
+--23520567
+--IT004.P113.2
+
+--Lab 5.2 - InClass - QLGV
+
+-- 9. Lớp trưởng của một lớp phải là học viên của lớp đó. 
+CREATE TRIGGER THEMSUA_LOP ON LOP
+FOR INSERT, UPDATE
+AS
+BEGIN 
+	IF NOT EXISTS (SELECT * FROM INSERTED I, HOCVIEN HV
+					WHERE I.TRGLOP = HV.MAHV AND I.MALOP = HV.MALOP
+					)
+		BEGIN 
+			PRINT 'Lop truong cua lop khong phai la hoc vien cua lop'
+			ROLLBACK TRANSACTION
+		END
+END
+
+CREATE TRIGGER XOA_HOCVIEN ON HOCVIEN
+FOR DELETE
+AS 
+BEGIN
+	IF EXISTS (SELECT * FROM DELETED D, LOP L
+				WHERE L.TRGLOP = D.MAHV AND D.MALOP = L.MALOP)
+		BEGIN 
+			PRINT 'Hoc vien dang la lop truong'
+			ROLLBACK TRANSACTION
+		END
+END
+
+-- 10. Trưởng khoa phải là giáo viên thuộc khoa và có học vị “TS” hoặc “PTS”. 
+CREATE TRIGGER SUA_TRGKHOA ON KHOA
+FOR UPDATE
+AS 
+BEGIN
+	DECLARE @MAKHOA char(4), @TRGKHOA char(4), @MAGV char(4), @MAKHOAGV char(4)
+	SELECT @MAKHOA = MAKHOA, @TRGKHOA = @TRGKHOA FROM INSERTED
+	SELECT @MAGV = MAGV, @MAKHOAGV = MAKHOA FROM GIAOVIEN WHERE MAGV = @TRGKHOA
+	IF (@MAKHOAGV = @MAKHOA AND @MAGV IN (SELECT MAGV FROM GIAOVIEN WHERE HOCVI IN ('TS', 'PTS')))
+		BEGIN
+			PRINT 'SUA THANH CONG'
+		END
+	ELSE
+		BEGIN 
+			PRINT 'Truong khoa khong la giao vien thuoc khoa hoc co hoc vi TS, PTS'
+			ROLLBACK TRANSACTION
+		END
+END
+
+CREATE TRIGGER SUA_MAKHOA_HOCVI ON GIAOVIEN
+FOR UPDATE 
+AS
+BEGIN
+	DECLARE @MAKHOAGV char(4), @HOCVI varchar(10), @MAGV char(4)
+	SELECT @MAKHOAGV = MAKHOA, @HOCVI = HOCVI FROM INSERTED
+	IF (@MAGV IN (SELECT TRGKHOA FROM KHOA) AND @HOCVI IN ('TS', 'PTS'))
+		BEGIN
+			PRINT 'SUA THANH CONG'
+		END
+	ELSE
+		BEGIN
+			PRINT 'Giao vien dang la truong khoa va co hoc vi la TS hoac PTS'
+			ROLLBACK TRANSACTION
+		END
+END
+
+-- 15. Học viên chỉ được thi một môn học nào đó khi lớp của học viên đã học xong môn học này. 
+CREATE TRIGGER THEMSUA_NGTHI ON KETQUATHI
+FOR INSERT, UPDATE
+AS
+BEGIN 
+	DECLARE @MAHV char(5), @MALOP char(3), @NGTHI smalldatetime, @DENNGAY smalldatetime, @MAMH varchar(10)
+	SELECT @MAHV = MAHV, @MAMH = MAMH, @NGTHI = NGTHI FROM INSERTED
+	SELECT @MALOP = MALOP FROM HOCVIEN WHERE MAHV = @MAHV
+	SELECT @DENNGAY = DENNGAY FROM GIANGDAY WHERE MALOP = @MALOP AND MAMH = @MAMH
+	IF (@NGTHI > @DENNGAY)
+		BEGIN 
+			PRINT 'Thuc hien thanh cong'
+		END
+	ELSE 
+		BEGIN
+			PRINT 'Ngay thi truoc ngay ket thuc mon hoc'
+			ROLLBACK TRANSACTION
+		END
+END
+
+CREATE TRIGGER THEMSUA_DENNGAY ON GIANGDAY
+FOR UPDATE
+AS
+BEGIN 
+	DECLARE @MAHV char(5), @MALOP char(3), @NGTHI smalldatetime, @DENNGAY smalldatetime, @MAMH varchar(10)
+	SELECT @MALOP = MALOP, @MAMH = MAMH, @DENNGAY = DENNGAY FROM INSERTED
+	SELECT @MAHV = MAHV FROM HOCVIEN WHERE MALOP = @MALOP
+	SELECT @NGTHI = NGTHI FROM KETQUATHI WHERE MAHV = @MAHV AND MAMH = @MAMH
+	IF (@NGTHI > @DENNGAY)
+		BEGIN 
+			PRINT 'Thuc hien thanh cong'
+		END
+	ELSE 
+		BEGIN
+			PRINT 'Ngay thi truoc ngay ket thuc mon hoc'
+			ROLLBACK TRANSACTION
+		END
+END
+
+-- 16. Mỗi học kỳ của một năm học, một lớp chỉ được học tối đa 3 môn. 
+CREATE TRIGGER THEM_GIANGDAY ON GIANGDAY
+FOR INSERT
+AS
+BEGIN
+	DECLARE @MALOP char(3), @SOMON int
+	SELECT @MALOP = MALOP FROM INSERTED
+	SELECT @SOMON = (SELECT COUNT(*) FROM GIANGDAY
+					WHERE MALOP = @MALOP
+					)
+	IF (@SOMON > 3)
+		BEGIN 
+			PRINT 'Mot lop chi hoc toi da 3 mon'
+			ROLLBACK TRANSACTION
+		END
+	ELSE
+		BEGIN
+			PRINT 'Them thanh cong'
+		END
+END
+
+-- 17. Sĩ số của một lớp bằng với số lượng học viên thuộc lớp đó. 
+CREATE TRIGGER SUA_SISO ON LOP
+FOR UPDATE
+AS
+BEGIN
+	DECLARE @MALOP char(3), @SISO int, @SOHV int
+	SELECT @MALOP = MALOP, @SISO = SISO FROM INSERTED
+	SELECT @SOHV = (SELECT COUNT(*) FROM HOCVIEN
+					WHERE MALOP = @MALOP
+					)
+	IF (@SOHV != @SISO)
+		BEGIN 
+			PRINT 'Si so cua lop phai bang voi so hoc vien thuoc lop do'
+			ROLLBACK TRANSACTION
+		END
+	ELSE
+		BEGIN
+			PRINT 'Sua thanh cong'
+		END
+END
+
+CREATE TRIGGER THEMSUA_MALOP ON HOCVIEN
+FOR UPDATE, INSERT
+AS
+BEGIN
+	DECLARE @MALOP char(3), @SISO int, @MAHV char(5), @SOHV int
+	SELECT @MALOP = MALOP FROM INSERTED
+	SELECT @SISO = SISO FROM LOP WHERE MALOP = @MALOP
+	SELECT @SOHV = (SELECT COUNT(*) FROM HOCVIEN
+					WHERE MALOP = @MALOP
+					)
+	IF (@SOHV != @SISO)
+		BEGIN 
+			PRINT 'Si so cua lop phai bang voi so hoc vien thuoc lop do'
+			ROLLBACK TRANSACTION
+		END
+	ELSE
+		BEGIN
+			PRINT 'Sua thanh cong'
+		END
+END
+
+-- 18. Trong quan hệ DIEUKIEN giá trị của thuộc tính MAMH và MAMH_TRUOC trong cùng 
+-- một bộ không được giống nhau (“A”,”A”) và cũng không tồn tại hai bộ (“A”,”B”) và 
+-- (“B”,”A”). 
+CREATE TRIGGER THEMSUA_DIEUKIEN ON DIEUKIEN
+FOR UPDATE, INSERT
+AS
+BEGIN
+	DECLARE @MAMH varchar(10), @MAMH_TRUOC varchar(10)
+	SELECT @MAMH = MAMH, @MAMH_TRUOC = @MAMH_TRUOC FROM INSERTED
+	IF (@MAMH = @MAMH_TRUOC OR @MAMH IN (SELECT MAMH FROM DIEUKIEN WHERE MAMH_TRUOC = @MAMH_TRUOC))
+		BEGIN
+			PRINT 'Thao tac khong thanh cong'
+			ROLLBACK TRANSACTION
+		END
+	ELSE
+		BEGIN
+			PRINT 'Thao tac thanh cong'
+		END 
+END
+
+-- 19. Các giáo viên có cùng học vị, học hàm, hệ số lương thì mức lương bằng nhau. 
+CREATE TRIGGER THEMSUA_GIAOVIEN ON GIAOVIEN
+FOR INSERT, UPDATE
+AS 
+BEGIN
+	DECLARE @HOCVI varchar(10), @HOCHAM varchar(10), @HESO numeric(4,2), @MUCLUONG money
+	SELECT @HOCVI = HOCVI, @HOCHAM = HOCHAM, @HESO = HESO, @MUCLUONG = MUCLUONG FROM INSERTED
+	IF (@MUCLUONG != (SELECT MUCLUONG FROM GIAOVIEN WHERE HOCVI = @HOCVI AND HOCHAM = @HOCHAM AND HESO = @HESO))
+		BEGIN
+			PRINT 'Muc luong khac nhau'
+			ROLLBACK TRANSACTION
+		END
+	ELSE
+		BEGIN 
+			PRINT 'Thao tac thanh cong'
+		END
+END
+
+-- 20. Học viên chỉ được thi lại (lần thi >1) khi điểm của lần thi trước đó dưới 5. 
+CREATE TRIGGER THEMSUA_LANTHI ON KETQUATHI
+FOR INSERT, UPDATE
+AS
+BEGIN
+	DECLARE @DIEM numeric(4,2), @LANTHI tinyint, @MAHV char(5), @MAMH varchar(10), @LANTHITRUOC tinyint
+	SELECT @MAHV = MAHV, @MAMH = MAMH, @LANTHI = LANTHI FROM INSERTED
+	SELECT @LANTHITRUOC = (SELECT COUNT(*) FROM KETQUATHI WHERE MAHV = @MAHV AND MAMH = @MAMH)
+	SELECT @DIEM = DIEM FROM KETQUATHI WHERE MAHV = @MAHV AND MAMH = @MAMH AND LANTHI = @LANTHITRUOC
+	IF (@LANTHI > 1 AND @DIEM < 5)
+		BEGIN
+			PRINT 'Thao tac thanh cong'
+		END
+	ELSE
+		BEGIN 
+			PRINT 'Hoc vien chi duoc thi lai khi diem lan thi truoc duoi 5'
+			ROLLBACK TRANSACTION
+		END
+END
+
+-- 21. Ngày thi của lần thi sau phải lớn hơn ngày thi của lần thi trước (cùng học viên, cùng môn học). 
+CREATE TRIGGER THEMSUA_NGTHI_LANTHI ON KETQUATHI
+FOR INSERT, UPDATE
+AS
+BEGIN
+	DECLARE @LANTHI tinyint, @MAHV char(5), @MAMH varchar(10), @LANTHITRUOC tinyint, @NGTHITRUOC smalldatetime, @NGTHI smalldatetime
+	SELECT @MAHV = MAHV, @MAMH = MAMH, @LANTHI = LANTHI FROM INSERTED
+	SELECT @LANTHITRUOC = (SELECT COUNT(*) FROM KETQUATHI WHERE MAHV = @MAHV AND MAMH = @MAMH)
+	SELECT @NGTHITRUOC = NGTHI FROM KETQUATHI WHERE MAHV = @MAHV AND MAMH = @MAMH AND LANTHI = @LANTHITRUOC
+	SELECT @NGTHI = NGTHI FROM KETQUATHI WHERE MAHV = @MAHV AND MAMH = @MAMH AND LANTHI = @LANTHI
+	IF (@NGTHI >= @NGTHITRUOC)
+		BEGIN
+			PRINT 'Thao tac thanh cong'
+		END
+	ELSE
+		BEGIN 
+			PRINT 'Ngay thi lan thi sau phai lon hon ngay thi lan thi truoc do'
+			ROLLBACK TRANSACTION
+		END
+END
+
+-- 22. Khi phân công giảng dạy một môn học, phải xét đến thứ tự trước sau giữa các môn học (sau 
+-- khi học xong những môn học phải học trước mới được học những môn liền sau). 
+CREATE TRIGGER THEMSUA_GIANGDAY ON GIANGDAY
+FOR INSERT, UPDATE
+AS 
+BEGIN
+	DECLARE @MALOP char(3), @MAGV char(4), @MAMH varchar(10)
+	SELECT @MALOP = MALOP, @MAGV = MAGV, @MAMH = MAMH FROM INSERTED
+	IF EXISTS (SELECT 1 FROM DIEUKIEN DK 
+			   LEFT JOIN KETQUATHI KQT ON DK.MAMH_TRUOC = KQT.MAMH 
+			   AND KQT.MAHV IN (SELECT MAHV FROM HOCVIEN WHERE MALOP = @MALOP)
+				WHERE DK.MAMH = @MAMH	
+				)
+		BEGIN 
+			PRINT 'Phai hoc het cac mon hoc truoc'
+			ROLLBACK TRANSACTION
+		END
+	ELSE
+		BEGIN 
+			PRINT 'Thao tac thanh cong'
+		END
+END
+
+-- 23. Giáo viên chỉ được phân công dạy những môn thuộc khoa giáo viên đó phụ trách.
+CREATE TRIGGER THEMSUA_PHANCONG_GIANGDAY ON GIANGDAY
+FOR INSERT, UPDATE
+AS
+BEGIN
+	DECLARE @MAMH varchar(10), @MAGV char(4), @MAKHOAGV varchar(4), @MAKHOAMH varchar(4)
+	SELECT @MAMH = MAMH, @MAGV = MAGV FROM INSERTED
+	SELECT @MAKHOAGV = MAKHOA FROM GIAOVIEN WHERE MAGV = @MAGV
+	SELECT @MAKHOAMH = MAKHOA FROM MONHOC WHERE MAMH = @MAMH
+	IF (@MAKHOAGV != @MAKHOAMH)
+		BEGIN
+			PRINT 'Giao vien chi duoc phan cong day cac mon thuoc khoa giao vien do phu trach'
+			ROLLBACK TRANSACTION
+		END
+	ELSE
+		BEGIN
+			PRINT 'Thao tac thanh cong'
+		END
+END
