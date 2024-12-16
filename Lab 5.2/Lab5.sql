@@ -1,3 +1,7 @@
+--Nguyễn Lê Hưng
+--23520567
+--IT004.P113.2
+
 -- Câu hỏi và ví dụ về Triggers (101-110)
 
 -- 101. Tạo một trigger để tự động cập nhật trường NgayCapNhat trong bảng ChuyenGia mỗi khi có sự thay đổi thông tin.
