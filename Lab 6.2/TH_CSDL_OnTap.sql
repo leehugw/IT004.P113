@@ -2,7 +2,7 @@
 -- 23520567
 -- IT003.P113.2 - Lab06
 
--- Link github: 
+-- Link github: https://github.com/leehugw/IT004.P113/blob/main/Lab%206.2/TH_CSDL_OnTap.sql
 
 --ĐỀ 1
 CREATE DATABASE NHASACH
